@@ -4,12 +4,15 @@
 #include <algorithm>
 #include <cmath>
 #include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDataStream>
 #include <QDir>
 #include <QFile>
 #include <QGuiApplication>
 #include <QKeySequence>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QProcess>
 #include <QQuickWindow>
 #include <QRegion>
 #include <QSaveFile>
@@ -125,6 +128,14 @@ Backend::Backend(QObject *parent)
 {
     connect(m_platform, &Platform::shortcutActivated, this, [this](const QString &cmd) { runCommand(cmd, QString()); });
     connect(m_platform, &Platform::needsShapeChanged, this, &Backend::needsShapeChanged);
+
+    // Bloqueio de tela: o KDE (e outros) avisam por org.freedesktop.ScreenSaver.ActiveChanged.
+    QDBusConnection::sessionBus().connect(QString(), QStringLiteral("/ScreenSaver"),
+                                          QStringLiteral("org.freedesktop.ScreenSaver"),
+                                          QStringLiteral("ActiveChanged"), this, SLOT(onScreenSaverActive(bool)));
+    QDBusConnection::sessionBus().connect(QString(), QStringLiteral("/org/freedesktop/ScreenSaver"),
+                                          QStringLiteral("org.freedesktop.ScreenSaver"),
+                                          QStringLiteral("ActiveChanged"), this, SLOT(onScreenSaverActive(bool)));
 
     m_accentChoice = QColor(QSettings(settingsPath(), QSettings::IniFormat).value(QStringLiteral("accent")).toString());
     reloadAccent();
@@ -492,4 +503,98 @@ void Backend::setAutostart(bool enabled)
 void Backend::quit()
 {
     QCoreApplication::quit();
+}
+
+void Backend::onScreenSaverActive(bool active)
+{
+    if (active == m_screenLocked)
+        return;
+    m_screenLocked = active;
+    emit screenLockedChanged();
+}
+
+// Gera (uma vez) um sininho de três notas em WAV, no cache. Nada de Qt Multimedia.
+QString Backend::chimePath()
+{
+    if (!m_chimePath.isEmpty() && QFile::exists(m_chimePath))
+        return m_chimePath;
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    QDir().mkpath(dir);
+    const QString path = dir + QStringLiteral("/pausa-v1.wav");
+    if (!QFile::exists(path)) {
+        const int rate = 44100;
+        const double total = 1.6;
+        const int n = int(rate * total);
+        QVector<double> buf(n, 0.0);
+        // Mi5, Sol#5, Si5: um acorde maior subindo, macio, com um harmônico de sino
+        const double notes[3] = {659.25, 830.61, 987.77};
+        for (int k = 0; k < 3; ++k) {
+            const int start = int(rate * 0.16 * k);
+            for (int i = start; i < n; ++i) {
+                const double t = double(i - start) / rate;
+                const double attack = std::min(1.0, t / 0.008);
+                const double env = attack * std::exp(-t * 3.2);
+                const double w = 2 * M_PI * notes[k] * t;
+                buf[i] += env * (std::sin(w) + 0.28 * std::sin(2.01 * w) + 0.08 * std::sin(3.98 * w));
+            }
+        }
+        double peak = 0;
+        for (double v : buf)
+            peak = std::max(peak, std::abs(v));
+        const double gain = peak > 0 ? 0.55 / peak : 0;
+
+        QByteArray pcm;
+        pcm.reserve(n * 2);
+        for (int i = 0; i < n; ++i) {
+            const double fade = i > n - 2000 ? double(n - i) / 2000.0 : 1.0;
+            const qint16 v = qint16(std::lround(std::clamp(buf[i] * gain * fade, -1.0, 1.0) * 32767));
+            pcm.append(char(v & 0xff));
+            pcm.append(char((v >> 8) & 0xff));
+        }
+        QByteArray wav;
+        QDataStream out(&wav, QIODevice::WriteOnly);
+        out.setByteOrder(QDataStream::LittleEndian);
+        out.writeRawData("RIFF", 4);
+        out << quint32(36 + pcm.size());
+        out.writeRawData("WAVEfmt ", 8);
+        out << quint32(16) << quint16(1) << quint16(1) << quint32(rate) << quint32(rate * 2)
+            << quint16(2) << quint16(16);
+        out.writeRawData("data", 4);
+        out << quint32(pcm.size());
+        out.writeRawData(pcm.constData(), pcm.size());
+
+        QSaveFile file(path);
+        if (!file.open(QIODevice::WriteOnly))
+            return QString();
+        file.write(wav);
+        if (!file.commit())
+            return QString();
+    }
+    m_chimePath = path;
+    return path;
+}
+
+void Backend::playChime()
+{
+    const QString path = chimePath();
+    if (path.isEmpty())
+        return;
+    if (m_player.isEmpty()) {
+        for (const char *p : {"pw-play", "paplay", "aplay"}) {
+            m_player = QStandardPaths::findExecutable(QString::fromLatin1(p));
+            if (!m_player.isEmpty())
+                break;
+        }
+        if (m_player.isEmpty()) {
+            m_player = QStringLiteral("-"); // nenhum player: fica em silêncio
+            qWarning("Foquinho: sem pw-play/paplay/aplay, o lembrete de pausa vai ficar mudo");
+        }
+    }
+    if (m_player == QLatin1String("-"))
+        return;
+    QStringList args;
+    if (m_player.endsWith(QLatin1String("aplay")))
+        args << QStringLiteral("-q");
+    args << path;
+    QProcess::startDetached(m_player, args);
 }

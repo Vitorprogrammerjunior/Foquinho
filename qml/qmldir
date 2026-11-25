@@ -7,6 +7,7 @@ Pet 1.0 Pet.qml
 Dot 1.0 Dot.qml
 CollapsedView 1.0 CollapsedView.qml
 AlertView 1.0 AlertView.qml
+BreakView 1.0 BreakView.qml
 ExpandedView 1.0 ExpandedView.qml
 MainSections 1.0 MainSections.qml
 FocusCard 1.0 FocusCard.qml

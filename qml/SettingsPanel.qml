@@ -144,6 +144,110 @@ Column {
     }
 
     Item { width: 1; height: 2 }
+    SectionLabel { width: parent.width; label: "SAÚDE" }
+
+    Rectangle {
+        id: breakCard
+        width: parent.width
+        height: Store.breakEnabled ? 104 : 50
+        radius: 14
+        color: Theme.card
+        border.width: 1
+        border.color: Theme.stroke
+        clip: true
+        Behavior on height { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+
+        readonly property real leftMin: { Store.now; return (Store.breakDueAt - Store.now) / 60000 }
+
+        Item {
+            width: parent.width
+            height: 50
+            Column {
+                x: 14
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 1
+                Text {
+                    text: "Lembrete para levantar"
+                    color: Theme.text
+                    font.pixelSize: 13
+                }
+                Text {
+                    text: !Store.breakEnabled ? "Toca um sininho e cresce o notch até você confirmar"
+                          : breakCard.leftMin <= 0 ? "Hora da pausa!"
+                          : "Próximo em " + Store.fmtMinutes(Math.ceil(breakCard.leftMin)) + " · bloquear a tela conta como pausa"
+                    color: Theme.text3
+                    font.pixelSize: 11
+                }
+            }
+            Toggle {
+                anchors.right: parent.right
+                anchors.rightMargin: 14
+                anchors.verticalCenter: parent.verticalCenter
+                checked: Store.breakEnabled
+                onToggled: (v) => Store.breakEnabled = v
+            }
+        }
+
+        Rectangle {
+            y: 50
+            x: 14; width: parent.width - 28; height: 1
+            color: Theme.stroke
+        }
+
+        Item {
+            y: 51
+            width: parent.width
+            height: 53
+            opacity: Store.breakEnabled ? 1 : 0
+            Behavior on opacity { NumberAnimation { duration: 180 } }
+            Text {
+                x: 14
+                anchors.verticalCenter: parent.verticalCenter
+                text: "A cada"
+                color: Theme.text2
+                font.pixelSize: 12
+            }
+            Row {
+                id: intervalRow
+                anchors.right: parent.right
+                anchors.rightMargin: 14
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 6
+                Repeater {
+                    model: [30, 45, 60, 90, 120]
+                    Rectangle {
+                        id: chip
+                        required property int modelData
+                        readonly property bool selected: Store.breakMinutes === modelData
+                        height: 28
+                        width: Math.max(52, chipT.implicitWidth + 20)
+                        radius: 14
+                        color: selected ? Theme.a(Theme.accent, 0.28) : chipMa.containsMouse ? Theme.fill2 : Theme.fill
+                        border.width: selected ? 1.5 : 0
+                        border.color: Theme.accent
+                        Behavior on color { ColorAnimation { duration: 140 } }
+                        Text {
+                            id: chipT
+                            anchors.centerIn: parent
+                            text: Store.fmtMinutes(chip.modelData)
+                            color: chip.selected ? Theme.text : Theme.text2
+                            font.pixelSize: 12
+                            font.weight: chip.selected ? Font.DemiBold : Font.Normal
+                        }
+                        MouseArea {
+                            id: chipMa
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: Store.breakMinutes = chip.modelData
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Item { width: 1; height: 2 }
     SectionLabel { width: parent.width; label: "MONITOR" }
 
     Row {

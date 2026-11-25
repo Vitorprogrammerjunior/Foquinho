@@ -35,6 +35,8 @@ class Backend : public QObject
     Q_PROPERTY(QString screenName READ screenName WRITE setScreenName NOTIFY screenNameChanged)
     // Monitor em que o notch está de fato agora.
     Q_PROPERTY(QString currentScreen READ currentScreen NOTIFY currentScreenChanged)
+    // Tela bloqueada (org.freedesktop.ScreenSaver). Serve para o lembrete de pausa saber que você saiu.
+    Q_PROPERTY(bool screenLocked READ screenLocked NOTIFY screenLockedChanged)
 
 public:
     explicit Backend(QObject *parent = nullptr);
@@ -59,6 +61,10 @@ public:
     void setScreenName(const QString &name);
     QString currentScreen() const { return m_currentScreen; }
     Q_INVOKABLE void nextScreen();
+    bool screenLocked() const { return m_screenLocked; }
+
+    // Toca o sininho do lembrete de pausa (pw-play, paplay ou aplay; sem dependência nova).
+    Q_INVOKABLE void playChime();
 
     // Comandos de atalho/IPC: os de monitor são tratados aqui, o resto vai pro QML.
     void runCommand(const QString &name, const QString &arg);
@@ -79,11 +85,14 @@ signals:
     void screenNameChanged();
     void currentScreenChanged();
     void needsShapeChanged();
+    void screenLockedChanged();
     // Comando vindo de atalho global ou de outra instância (ex.: "add Comprar pão").
     void command(const QString &name, const QString &arg);
 
 private:
     void reloadAccent();
+    Q_SLOT void onScreenSaverActive(bool active);
+    QString chimePath();
     QScreen *targetScreen() const;
     void placeWindow(bool remap);
     QString settingsPath() const;
@@ -104,4 +113,7 @@ private:
     QString m_screenName;
     QString m_currentScreen;
     QTimer m_screenDebounce;
+    bool m_screenLocked = false;
+    QString m_chimePath;
+    QString m_player;
 };

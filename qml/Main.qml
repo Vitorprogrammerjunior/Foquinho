@@ -18,20 +18,25 @@ Window {
     property double expandStamp: 0
     property var alertData: null
 
-    readonly property bool hovered: notchHover.hovered && !expanded && !alertData
-    readonly property bool hiddenMode: Store.hidden && !quitting
+    // Lembrete de pausa tocando: ganha de tudo (até da bolinha escondida, que cresce pra avisar).
+    readonly property bool breakShown: Store.breakRinging && booted && !quitting && !expanded
+    readonly property bool hovered: notchHover.hovered && !expanded && !alertData && !breakShown
+    readonly property bool hiddenMode: Store.hidden && !quitting && !breakShown
+    property real nudge: 0
 
     readonly property real targetW: (!booted || quitting) ? 0
         : hiddenMode ? 36
+        : breakShown ? 480 + nudge
         : expanded ? 548
         : alertData ? 400
         : collapsedView.implicitWidth
     readonly property real targetH: (!booted || quitting) ? 0
         : hiddenMode ? 0
+        : breakShown ? 64 + nudge * 0.25
         : expanded ? expandedView.implicitHeight
         : alertData ? 62
         : (hovered ? 42 : 38)
-    readonly property real targetR: expanded ? 32 : alertData ? 28 : (hovered ? 21 : 19)
+    readonly property real targetR: expanded ? 32 : (alertData || breakShown) ? 28 : (hovered ? 21 : 19)
 
     property real curW: targetW
     property real curH: targetH
@@ -75,10 +80,64 @@ Window {
         quitTimer.start()
     }
     function showAlert(a, ms) {
-        if (expanded || Store.hidden) return
+        if (expanded || Store.hidden || breakShown) return
         alertData = a
         alertTimer.interval = ms || 2600
         alertTimer.restart()
+    }
+
+    // ---------- lembrete de pausa ----------
+    // Com o painel aberto, espera você fechar (no máximo 2 min) antes de tocar.
+    property double breakWaitSince: 0
+    Connections {
+        target: Store
+        function onBreakDueChanged() { win.checkBreak() }
+    }
+    function checkBreak() {
+        if (!Store.breakDue || !booted) return
+        if (expanded) {
+            if (!breakWaitSince) breakWaitSince = Date.now()
+            if (Date.now() - breakWaitSince < 120000) { breakWait.restart(); return }
+            collapse()
+        }
+        breakWaitSince = 0
+        alertData = null
+        Store.ringBreak()
+    }
+    Timer { id: breakWait; interval: 5000; onTriggered: win.checkBreak() }
+
+    // Toca o sininho: no começo a cada 6 s, depois de 1 min a cada 15 s. Para só quando você confirma.
+    property int ringCount: 0
+    Timer {
+        id: ringer
+        running: win.breakShown && !(Backend.screenLocked)
+        repeat: true
+        triggeredOnStart: true
+        interval: win.ringCount < 10 ? 6000 : 15000
+        onTriggered: {
+            win.ringCount++
+            Backend.playChime()
+            breakView.ring()
+            nudgeAnim.restart()
+        }
+        onRunningChanged: if (!running && !Store.breakRinging) win.ringCount = 0
+    }
+    SequentialAnimation {
+        id: nudgeAnim
+        NumberAnimation { target: win; property: "nudge"; to: 26; duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { target: win; property: "nudge"; to: 0; duration: 520; easing.type: Easing.OutBack; easing.overshoot: 3 }
+    }
+    function confirmBreak() {
+        Store.tookBreak(false)
+        afterBreak.restart()
+    }
+    function snoozeBreak() {
+        Store.snoozeBreak(5)
+    }
+    Timer {
+        id: afterBreak; interval: 700
+        onTriggered: win.showAlert({ kind: "done", title: "Boa! Pausa feita",
+                                     sub: "Te chamo de novo em " + Store.fmtMinutes(Store.breakMinutes) }, 3000)
     }
 
     property bool quickMode: false
@@ -108,7 +167,7 @@ Window {
 
     // ---------- balão de atalhos: ao iniciar e uma vez por dia ----------
     property bool tipPending: false
-    readonly property bool tipShown: tipPending && booted && !quitting && !expanded && !hiddenMode && !alertData
+    readonly property bool tipShown: tipPending && booted && !quitting && !expanded && !hiddenMode && !alertData && !breakShown
     function maybeTip(onStartup) {
         if (!Store.tipsEnabled || tipPending) return
         if (onStartup || Store.lastTipDay !== Store.dayKey()) tipPending = true
@@ -125,6 +184,7 @@ Window {
 
     property double lastWave: 0
     onExpandedChanged: {
+        Qt.callLater(checkBreak)
         if (expanded && Date.now() - lastWave > 90000) {
             lastWave = Date.now()
             waveDelay.restart()
@@ -165,6 +225,7 @@ Window {
             case "play": Media.playPause(); break
             case "next": Media.next(); break
             case "prev": Media.previous(); break
+            case "break": Store.ringBreak(); break
             case "quit": win.quitApp(); break
             }
         }
@@ -273,7 +334,7 @@ Window {
                 spread: -4
                 offset.y: 14
                 color: "#000000"
-                opacity: win.expanded ? 0.65 : win.alertData ? 0.45 : 0
+                opacity: win.expanded ? 0.65 : win.breakShown ? 0.55 : win.alertData ? 0.45 : 0
                 Behavior on opacity { NumberAnimation { duration: 280 } }
             }
 
@@ -286,7 +347,7 @@ Window {
 
             MouseArea {
                 anchors.fill: parent
-                enabled: !win.expanded
+                enabled: !win.expanded && !win.breakShown
                 cursorShape: Qt.PointingHandCursor
                 onClicked: win.expand(false)
             }
@@ -305,13 +366,21 @@ Window {
                     width: implicitWidth
                     height: win.hovered ? 42 : 38
                     hovered: win.hovered
-                    shown: win.booted && !win.quitting && !win.expanded && !win.alertData && !win.hiddenMode
+                    shown: win.booted && !win.quitting && !win.expanded && !win.alertData && !win.hiddenMode && !win.breakShown
                 }
 
                 AlertView {
                     anchors.horizontalCenter: parent.horizontalCenter
                     alert: win.alertData
-                    shown: !!win.alertData && !win.expanded && !win.hiddenMode && !win.quitting
+                    shown: !!win.alertData && !win.expanded && !win.hiddenMode && !win.quitting && !win.breakShown
+                }
+
+                BreakView {
+                    id: breakView
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    shown: win.breakShown
+                    onConfirmed: win.confirmBreak()
+                    onSnoozed: win.snoozeBreak()
                 }
 
                 ExpandedView {

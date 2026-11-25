@@ -1,6 +1,7 @@
 <RCC>
   <qresource prefix="/">
     <file>qml/AlertView.qml</file>
+    <file>qml/BreakView.qml</file>
     <file>qml/CollapsedView.qml</file>
     <file>qml/DoneSection.qml</file>
     <file>qml/Disc.qml</file>

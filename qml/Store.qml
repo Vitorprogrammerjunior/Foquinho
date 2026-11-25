@@ -30,6 +30,20 @@ QtObject {
     property string lastTipDay: ""
     property bool tipTalking: false
 
+    // ---------- lembrete de pausa (levantar do PC) ----------
+    property bool breakEnabled: true
+    property int breakMinutes: 90
+    property double sitStart: Date.now()   // desde quando você está sentado sem pausa
+    property bool breakRinging: false
+    property double breakRangAt: 0
+    property double lockedAt: 0
+    property double lastTick: Date.now()
+    readonly property double breakDueAt: sitStart + breakMinutes * 60000
+    readonly property bool breakDue: breakEnabled && loaded && !breakRinging && now >= breakDueAt
+                                     && !(backend && backend.screenLocked)
+    // Saiu de perto por pelo menos isto (tela bloqueada ou PC suspenso)? Conta como pausa.
+    readonly property int awayResetMs: 3 * 60000
+
     // falas curtas do mascote (aparecem no lugar da frase de status)
     property string quip: ""
     property Timer quipTimer: Timer { interval: 2600; onTriggered: store.quip = "" }
@@ -56,10 +70,30 @@ QtObject {
     onTipsEnabledChanged: saveLater()
     onMusicEnabledChanged: saveLater()
     onLastTipDayChanged: saveLater()
+    onBreakEnabledChanged: { if (loaded) { resetSitting(); breakRinging = false } saveLater() }
+    onBreakMinutesChanged: saveLater()
 
     property Timer ticker: Timer {
         interval: 500; running: true; repeat: true
-        onTriggered: store.now = Date.now()
+        onTriggered: {
+            const n = Date.now()
+            // PC suspenso/hibernado: o relógio pula. Ficou longe tempo suficiente, conta como pausa.
+            if (n - store.lastTick > store.awayResetMs) store.tookBreak(true)
+            store.lastTick = n
+            store.now = n
+        }
+    }
+
+    property Connections lockWatch: Connections {
+        target: store.backend
+        function onScreenLockedChanged() {
+            if (store.backend.screenLocked) {
+                store.lockedAt = Date.now()
+            } else if (store.lockedAt > 0) {
+                if (Date.now() - store.lockedAt >= store.awayResetMs) store.tookBreak(true)
+                store.lockedAt = 0
+            }
+        }
     }
     property Timer saveTimer: Timer { interval: 400; onTriggered: store.save() }
     property Timer heartbeat: Timer { interval: 30000; running: true; repeat: true; onTriggered: store.save() }
@@ -163,6 +197,42 @@ QtObject {
     }
 
     function saveLater() { if (loaded) saveTimer.restart() }
+
+    // ---------- pausas ----------
+    function resetSitting() { sitStart = Date.now(); saveLater() }
+
+    function ringBreak() {
+        if (breakRinging) return
+        breakRinging = true
+        breakRangAt = Date.now()
+        petEvent("surprised")
+    }
+
+    // Levantou (pelo botão, ou bloqueou a tela / suspendeu por alguns minutos).
+    function tookBreak(silent) {
+        const wasRinging = breakRinging
+        breakRinging = false
+        resetSitting()
+        if (!silent || wasRinging) {
+            petEvent("celebrate")
+            sayOneOf(["Boa! Alongou?", "Isso! Seu corpo agradece.", "Água também conta, hein!"])
+        }
+    }
+
+    function snoozeBreak(minutes) {
+        breakRinging = false
+        sitStart = Date.now() - Math.max(0, breakMinutes - minutes) * 60000
+        saveLater()
+        say("Tá bom, mais " + minutes + " min. Mas levanta!")
+    }
+
+    // "1h30", "45 min"
+    function fmtMinutes(m) {
+        m = Math.max(0, Math.round(m))
+        const h = Math.floor(m / 60), r = m % 60
+        if (h === 0) return m + " min"
+        return r === 0 ? h + "h" : h + "h" + pad(r)
+    }
 
     // ---------- ações ----------
     function addTask(title, toFocus) {
@@ -288,7 +358,9 @@ QtObject {
             version: 1,
             lastSeen: Date.now(),
             settings: { petKind: petKind, petName: petName, autoAdvance: autoAdvance, hidden: hidden,
-                        tipsEnabled: tipsEnabled, lastTipDay: lastTipDay, musicEnabled: musicEnabled },
+                        tipsEnabled: tipsEnabled, lastTipDay: lastTipDay, musicEnabled: musicEnabled,
+                        breakEnabled: breakEnabled, breakMinutes: breakMinutes },
+            sitStart: sitStart,
             totalDone: totalDone,
             focus: modelToArray(focusModel),
             queue: modelToArray(queueModel),
@@ -311,10 +383,14 @@ QtObject {
                 if (s.tipsEnabled !== undefined) tipsEnabled = !!s.tipsEnabled
                 if (s.musicEnabled !== undefined) musicEnabled = !!s.musicEnabled
                 lastTipDay = s.lastTipDay || ""
+                if (s.breakEnabled !== undefined) breakEnabled = !!s.breakEnabled
+                if (s.breakMinutes > 0) breakMinutes = Math.max(15, Math.min(240, s.breakMinutes))
                 totalDone = d.totalDone || 0
                 const n = Date.now()
                 // Cronômetros que estavam rodando contam só até a última vez que o app esteve vivo.
                 const lastSeen = Math.min(d.lastSeen || n, n)
+                // Reabriu logo (atualização, reinício do app): continua contando o tempo sentado.
+                if (d.sitStart > 0 && n - lastSeen < awayResetMs) sitStart = Math.min(d.sitStart, n)
                 for (const f of (d.focus || [])) {
                     const t = copyTask(f)
                     if (t.running) {

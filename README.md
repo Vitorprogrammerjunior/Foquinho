@@ -35,6 +35,20 @@ Ele só some se **você** mandar.
 - 🐱 **Um mascote com personalidade.** Ele dorme, comemora, se assusta, fica cansado e pede carinho.
 - 🎨 **Parece nativo.** Cantos, sombras, fontes e a cor de destaque do seu KDE, em tempo real.
 - 🎵 **A trilha sonora vem junto.** O Spotify (e outros players) toca direto no notch, com DVD girando e ondinhas na batida.
+- 🧍 **Lembra você de levantar.** A cada 90 minutos (ou o intervalo que escolher) o notch cresce, toca um sininho e só para quando você confirma.
+
+---
+
+## 🧍 Lembrete para levantar
+
+Ficar horas sentado cobra a conta. Com o lembrete ligado, a cada **90 minutos** o Foquinho cresce no topo da tela
+(até se estiver escondido na bolinha), toca um sininho e fica chamando, igual um despertador, até você clicar em
+**Levantei**. Precisa de mais um tempinho? O **+5 min** adia só um pouco.
+
+- Liga, desliga e troca o intervalo (30 min, 45 min, 1h, 1h30 ou 2h) em **Ajustes › Saúde**.
+- Bloquear a tela ou suspender o PC por 3 minutos ou mais já conta como pausa: o relógio recomeça sozinho.
+- O som é gerado pelo próprio app e tocado com `pw-play`, `paplay` ou `aplay` (nenhuma dependência nova).
+- Para testar na hora: `foco-max break`.
 
 ---
 

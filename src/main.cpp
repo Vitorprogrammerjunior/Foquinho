@@ -17,6 +17,7 @@
 //   foco-max start           inicia, sem abrir nada se já estiver rodando (autostart)
 //   foco-max screen [next|primary|<conector>]   move o notch de monitor
 //   foco-max play|next|prev                     controla a música tocando
+//   foco-max break                              dispara o lembrete de pausa agora (teste)
 int main(int argc, char *argv[])
 {
     Platform::preInit();
