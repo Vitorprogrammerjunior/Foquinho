@@ -14,8 +14,8 @@ Item {
 
     width: size
     height: size
-    scale: ma.pressed ? 0.86 : 1
-    Behavior on scale { NumberAnimation { duration: 140; easing.type: Easing.OutQuad } }
+    scale: ma.pressed ? 0.86 : ma.containsMouse ? 1.1 : 1
+    Behavior on scale { NumberAnimation { duration: ma.pressed ? 90 : 260; easing.type: Easing.OutBack; easing.overshoot: 2 } }
 
     Rectangle {
         anchors.fill: parent
@@ -28,6 +28,7 @@ Item {
         name: b.icon
         size: b.iconSize
         color: ma.containsMouse ? b.hoverColor : b.color
+        Behavior on color { ColorAnimation { duration: 140 } }
     }
     MouseArea {
         id: ma

@@ -363,8 +363,9 @@ Window {
                 CollapsedView {
                     id: collapsedView
                     anchors.horizontalCenter: parent.horizontalCenter
-                    width: implicitWidth
-                    height: win.hovered ? 42 : 38
+                    // acompanha a mola do notch: enquanto ele cresce, nada fica cortado nas bordas
+                    width: Math.min(implicitWidth, Math.max(0, win.curW))
+                    height: 38 + 4 * collapsedView.hoverT
                     hovered: win.hovered
                     shown: win.booted && !win.quitting && !win.expanded && !win.alertData && !win.hiddenMode && !win.breakShown
                 }
