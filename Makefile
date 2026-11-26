@@ -10,6 +10,9 @@ endif
 QT_MODULES := Qt6Quick Qt6Qml Qt6Gui Qt6Core Qt6Network Qt6DBus
 CXX        ?= g++
 PREFIX     ?= $(HOME)/.local
+# Endereço do sistema de demandas sugerido no primeiro uso (opcional):
+#   make HUB_SERVER=https://demandas.suaempresa.com.br install
+HUB_SERVER ?=
 DESTDIR    ?=
 MOC        := /usr/lib/qt6/moc
 RCC        := /usr/lib/qt6/rcc
@@ -28,16 +31,25 @@ endif
 
 B          := build/$(PLATFORM)
 CXXFLAGS   += -O2 -std=c++17 -fPIC -Wall -Wextra -Isrc \
-              $(shell pkg-config --cflags $(QT_MODULES)) $(PLAT_FLAGS)
+              $(shell pkg-config --cflags $(QT_MODULES)) $(PLAT_FLAGS) \
+              -DFOCO_HUB_SERVER='"$(HUB_SERVER)"'
 LDLIBS     += $(shell pkg-config --libs $(QT_MODULES)) $(PLAT_LIBS)
 
 QML_FILES  := $(wildcard qml/*.qml) qml/qmldir
-HEADERS    := src/backend.h src/media.h src/platform.h
-OBJS       := $(B)/main.o $(B)/backend.o $(B)/media.o $(B)/platform.o \
-              $(B)/moc_backend.o $(B)/moc_media.o $(B)/moc_platform.o $(B)/qrc_resources.o
+HEADERS    := src/backend.h src/media.h src/platform.h src/hub.h
+OBJS       := $(B)/main.o $(B)/backend.o $(B)/media.o $(B)/hub.o $(B)/platform.o \
+              $(B)/moc_backend.o $(B)/moc_media.o $(B)/moc_hub.o $(B)/moc_platform.o $(B)/qrc_resources.o
 TARGET     := $(B)/foco-max
 
 all: $(TARGET)
+
+# Recompila o hub quando o HUB_SERVER muda.
+$(B)/.hub_server: FORCE
+	@mkdir -p $(B)
+	@echo '$(HUB_SERVER)' | cmp -s - $@ || echo '$(HUB_SERVER)' > $@
+$(B)/hub.o: $(B)/.hub_server
+FORCE:
+.PHONY: FORCE
 
 $(B):
 	@mkdir -p $(B)

@@ -7,6 +7,7 @@ QtObject {
 
     property var backend: null
     property var media: null
+    property var hub: null   // Hub de Demandas (telão); null = sem integração
 
     property ListModel focusModel: ListModel {}
     property ListModel queueModel: ListModel {}
@@ -352,8 +353,31 @@ QtObject {
         return a
     }
 
+    // Estado que vai para o Hub de Demandas: foco, fila e as concluídas deste mês.
+    function hubState() {
+        const som = new Date(); som.setDate(1); som.setHours(0, 0, 0, 0)
+        const done = []
+        for (let i = 0; i < doneModel.count && done.length < 300; i++) {
+            const t = doneModel.get(i)
+            if (t.doneAt < som.getTime()) break
+            done.push(copyTask(t))
+        }
+        return { focus: modelToArray(focusModel), queue: modelToArray(queueModel), done: done }
+    }
+
+    function pushHub() {
+        if (hub && hub.connected && loaded) hub.push(JSON.stringify(hubState()))
+    }
+
+    // Acabou de conectar: manda o que já está anotado.
+    property Connections hubWatch: Connections {
+        target: store.hub
+        function onConnectSucceeded() { store.pushHub() }
+    }
+
     function save() {
         if (!backend || !loaded) return
+        pushHub()
         backend.saveState(JSON.stringify({
             version: 1,
             lastSeen: Date.now(),

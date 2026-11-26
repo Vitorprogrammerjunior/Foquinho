@@ -195,6 +195,7 @@ Window {
     Component.onCompleted: {
         Store.backend = Backend
         Store.media = Media
+        Store.hub = HubSync
         Store.load()
         bootTimer.start()
         tipStartup.start()

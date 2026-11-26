@@ -1,4 +1,5 @@
 #include "backend.h"
+#include "hub.h"
 #include "media.h"
 #include "platform.h"
 
@@ -49,9 +50,12 @@ int main(int argc, char *argv[])
     Media media;
     media.setVisualize(true);
 
+    Hub hub; // conexão com o Hub de Demandas (o telão)
+
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("Backend"), &backend);
     engine.rootContext()->setContextProperty(QStringLiteral("Media"), &media);
+    engine.rootContext()->setContextProperty(QStringLiteral("HubSync"), &hub);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().value(0));

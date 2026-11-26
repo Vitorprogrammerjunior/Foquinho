@@ -8,6 +8,7 @@
     <file>qml/Dot.qml</file>
     <file>qml/ExpandedView.qml</file>
     <file>qml/FocusCard.qml</file>
+    <file>qml/HubPanel.qml</file>
     <file>qml/IconButton.qml</file>
     <file>qml/Icon.qml</file>
     <file>qml/InputField.qml</file>

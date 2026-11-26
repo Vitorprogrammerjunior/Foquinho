@@ -10,6 +10,9 @@ Column {
     visible: opacity > 0.01
     Behavior on opacity { NumberAnimation { duration: 200 } }
 
+    HubPanel { width: parent.width; shown: sp.shown }
+
+    Item { width: 1; height: 2; visible: !!Store.hub }
     SectionLabel { width: parent.width; label: "MASCOTE" }
 
     Row {

@@ -39,6 +39,20 @@ Ele só some se **você** mandar.
 
 ---
 
+## 🗂️ Integração com sistema de gerenciamento de demandas
+
+O Foquinho pode se conectar a um sistema de gerenciamento de demandas da equipe: o que você anota
+(o que está **em foco** e o que está **na fila**) é sincronizado com ele automaticamente.
+
+- Em **Ajustes › Hub de Demandas**: endereço do servidor, seu nome, o **código da equipe** (quem administra o sistema define) e o seu setor.
+- Um setor só. Mudou de time? Troque ali mesmo; as demandas abertas vão junto.
+- Sincroniza sozinho a cada mudança. Sem internet, continua tudo funcionando e ele reenvia quando a conexão voltar.
+- A bolinha no topo do painel mostra o status: verde sincronizado, laranja sem conexão, vermelho precisa reconectar.
+- O token fica em `~/.local/share/foco-max/hub.json`, legível só pelo seu usuário.
+- Para já vir com o endereço preenchido: `make HUB_SERVER=https://seu-servidor install`.
+
+---
+
 ## 🧍 Lembrete para levantar
 
 Ficar horas sentado cobra a conta. Com o lembrete ligado, a cada **90 minutos** o Foquinho cresce no topo da tela

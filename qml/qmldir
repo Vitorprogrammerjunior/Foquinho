@@ -15,6 +15,7 @@ QueueList 1.0 QueueList.qml
 DoneSection 1.0 DoneSection.qml
 InputField 1.0 InputField.qml
 SettingsPanel 1.0 SettingsPanel.qml
+HubPanel 1.0 HubPanel.qml
 Toggle 1.0 Toggle.qml
 SectionLabel 1.0 SectionLabel.qml
 TipBubble 1.0 TipBubble.qml

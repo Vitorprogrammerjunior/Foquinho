@@ -81,6 +81,44 @@ Item {
                         font.weight: Font.DemiBold
                     }
                 }
+                // No telão? Setor + bolinha de status da sincronização com o Hub de Demandas.
+                Rectangle {
+                    id: hubPill
+                    readonly property var hub: Store.hub
+                    readonly property string st: hub ? hub.status : "off"
+                    visible: !!hub && (hub.connected || st === "expired")
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 17
+                    width: hubPillRow.implicitWidth + 12
+                    radius: 8.5
+                    color: hubPillMa.containsMouse ? Theme.fill2 : Theme.fill
+                    Row {
+                        id: hubPillRow
+                        anchors.centerIn: parent
+                        spacing: 5
+                        Rectangle {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 6; height: 6; radius: 3
+                            color: hubPill.st === "ok" ? Theme.green
+                                 : hubPill.st === "syncing" ? Theme.accent
+                                 : hubPill.st === "offline" ? Theme.orange : Theme.red
+                        }
+                        Text {
+                            text: hubPill.st === "expired" ? "Hub desconectado"
+                                  : hubPill.hub ? (hubPill.hub.sectorName || "Hub") : ""
+                            color: Theme.text2
+                            font.pixelSize: 10
+                            font.weight: Font.DemiBold
+                        }
+                    }
+                    MouseArea {
+                        id: hubPillMa
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: if (!ev.settingsOpen) ev.settingsToggled()
+                    }
+                }
             }
             Text {
                 width: 236
